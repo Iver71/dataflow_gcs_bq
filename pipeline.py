@@ -1,76 +1,120 @@
 import argparse
 import logging
-import os
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
-from apache_beam.io import fileio
+from google.cloud import bigquery
 
-class RouteGCSFilesFn(beam.DoFn):
-    def __init__(self, raw_path, quarantine_path):
-        self.raw_path = raw_path
-        self.quarantine_path = quarantine_path
+class ExecuteSilverTransformFn(beam.DoFn):
+    def __init__(self, project_id, dataset_bronze, dataset_silver, table_id, location):
+        self.project_id = project_id
+        self.dataset_bronze = dataset_bronze
+        self.dataset_silver = dataset_silver
+        self.table_id = table_id
+        self.location = location
 
-    def process(self, file_metadata):
-        # Mover los imports aquí adentro para que los workers distributed los reconozcan
-        import apache_beam.io.gcp.gcsio as gcsio
-        import posixpath
-
-        gcs = gcsio.GcsIO()
-
-        # Path real del archivo en GCS
-        gcs_path = file_metadata.metadata.path
-        filename = os.path.basename(gcs_path)
-
-        if not filename:
-            return
-
-        # Lógica de enrutamiento (Routing logic)
-        if filename.lower().endswith(".csv"):
-            target_directory = self.raw_path
-        else:
-            target_directory = self.quarantine_path
-
-        # Usar posixpath de forma segura para las rutas de GCS
-        target_path = posixpath.join(target_directory, filename)
-
-        logging.info(f"Moviendo {gcs_path} -> {target_path}")
-
-        try:
-            # 1. Leer archivo original desde landing
-            with gcs.open(gcs_path) as src:
-                content = src.read()
-
-            # 2. Escribir archivo en la capa de destino correspondiente
-            with gcs.open(target_path, "w") as dest:
-                dest.write(content)
-
-            logging.info(f"Archivo copiado correctamente a destino: {filename}")
-
-            # 3. 🔥 ELIMINACIÓN SEGURA: Borrar de landing SOLO si el paso anterior fue exitoso
-            gcs.delete(gcs_path)
-            logging.info(f"Archivo original purgado con éxito de landing: {filename}")
-
-        except Exception as e:
-            logging.error(f"Error procesando {filename}. Se mantendrá en landing por seguridad: {str(e)}")
+    def process(self, element):
+        client = bigquery.Client(project=self.project_id)
+        
+        table_ref_silver = f"`{self.project_id}.{self.dataset_silver}.{self.table_id}`"
+        table_source_bronze = f"`{self.project_id}.{self.dataset_bronze}.{self.table_id}`"
+        
+        query_transformacion = f"""
+        CREATE OR REPLACE TABLE {table_ref_silver} AS
+        SELECT
+            CAST(review_id AS STRING) AS review_id,
+            CAST(order_id AS STRING) AS order_id,
+            CAST(review_score AS INT64) AS review_score,
+            CAST(review_comment_title AS STRING) AS review_comment_title,
+            CAST(review_comment_message AS STRING) AS review_comment_message,
+            PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%S', review_creation_date) AS review_creation_date,
+            PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%S', review_answer_timestamp) AS review_answer_timestamp
+        FROM
+            {table_source_bronze}
+        """
+        
+        logging.info("Iniciando transformación hacia la capa SILVER en BigQuery...")
+        query_job = client.query(query_transformacion, location=self.location)
+        query_job.result()  
+        logging.info("Capa SILVER completada exitosamente desde Dataflow.")
+        yield f"Proceso Silver Exitoso para {self.table_id}"
 
 def run(argv=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input_path", required=True)
-    parser.add_argument("--output_raw", required=True)
-    parser.add_argument("--output_quarantine", required=True)
+    parser.add_argument("--input_uri", default="gs://tables_sample/olist_order_reviews_dataset.csv")
+    parser.add_argument("--project_id", default="omega-chimera-469104-s7")
+    parser.add_argument("--location", default="us-east1")
+    parser.add_argument("--table_id", default="order_reviews")
+    parser.add_argument("--dataset_bronze", default="olist_dataset_bronze")
+    parser.add_argument("--dataset_silver", default="olist_dataset_silver")
 
     known_args, pipeline_args = parser.parse_known_args(argv)
     pipeline_options = PipelineOptions(pipeline_args)
 
+    # ----------------------------------------------------------------------
+    # NUEVO: Verificación y creación de Datasets antes de iniciar Beam
+    # ----------------------------------------------------------------------
+    bq_client = bigquery.Client(project=known_args.project_id)
+    datasets_to_check = [known_args.dataset_bronze, known_args.dataset_silver]
+    
+    for dataset_name in datasets_to_check:
+        dataset_ref = bigquery.DatasetReference(known_args.project_id, dataset_name)
+        try:
+            bq_client.get_dataset(dataset_ref)
+            logging.info(f"El dataset {dataset_name} ya existe.")
+        except Exception:
+            logging.info(f"El dataset {dataset_name} no existe. Creándolo...")
+            nuevo_dataset = bigquery.Dataset(dataset_ref)
+            nuevo_dataset.location = known_args.location
+            bq_client.create_dataset(nuevo_dataset, exists_ok=True)
+            logging.info(f"Dataset {dataset_name} creado con éxito en {known_args.location}.")
+
+    # Esquema Bronze
+    esquema_bronze = {
+        'fields': [
+            {'name': 'review_id', 'type': 'STRING', 'mode': 'NULLABLE'},
+            {'name': 'order_id', 'type': 'STRING', 'mode': 'NULLABLE'},
+            {'name': 'review_score', 'type': 'STRING', 'mode': 'NULLABLE'},
+            {'name': 'review_comment_title', 'type': 'STRING', 'mode': 'NULLABLE'},
+            {'name': 'review_comment_message', 'type': 'STRING', 'mode': 'NULLABLE'},
+            {'name': 'review_creation_date', 'type': 'STRING', 'mode': 'NULLABLE'},
+            {'name': 'review_answer_timestamp', 'type': 'STRING', 'mode': 'NULLABLE'}
+        ]
+    }
+
     with beam.Pipeline(options=pipeline_options) as p:
+        # PASO 1: Ingesta desde GCS y Escritura Directa a Bronze
+        bronze_load = (
+            p
+            | "Read CSV from GCS" >> beam.io.ReadFromText(known_args.input_uri, skip_header_lines=1)
+            | "Parse CSV Line" >> beam.Map(lambda line: dict(zip(
+                ['review_id', 'order_id', 'review_score', 'review_comment_title', 'review_comment_message', 'review_creation_date', 'review_answer_timestamp'],
+                [val.strip('"') for val in line.split(',')]
+              )))
+            | "Write to Bronze Table" >> beam.io.WriteToBigQuery(
+                table=known_args.table_id,
+                dataset=known_args.dataset_bronze,
+                project=known_args.project_id,
+                schema=esquema_bronze,
+                create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
+                write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE
+            )
+        )
+
+        # PASO 2: Orquestación y ejecución de la transformación hacia Silver
         (
             p
-            | "Match Files" >> fileio.MatchFiles(known_args.input_path)
-            | "Read Matches" >> fileio.ReadMatches()
-            | "Route Files" >> beam.ParDo(
-                RouteGCSFilesFn(
-                    known_args.output_raw,
-                    known_args.output_quarantine
+            | "Create Trigger Signal" >> beam.Create([None])
+            | "Wait for Bronze Load" >> beam.Map(
+                lambda x, onyx: x, 
+                onyx=beam.pvalue.AsSingleton(bronze_load.destination_load_jobid_pcollection)
+            )
+            | "Execute SQL Silver" >> beam.ParDo(
+                ExecuteSilverTransformFn(
+                    project_id=known_args.project_id,
+                    dataset_bronze=known_args.dataset_bronze,
+                    dataset_silver=known_args.dataset_silver,
+                    table_id=known_args.table_id,
+                    location=known_args.location
                 )
             )
         )
