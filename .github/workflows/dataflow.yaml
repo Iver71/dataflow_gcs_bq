@@ -27,7 +27,7 @@ jobs:
         with:
           project_id: 'omega-chimera-469104-s7' # Forzar ID de proyecto limpio aquí obligatoriamente
           workload_identity_provider: 'projects/43424099593/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
-          service_account: 'dataflow-router-sa@omega-chimera-469104-s7.iam.gserviceaccount.com'
+          service_account: 'dataflow-gcs-bq@omega-chimera-469104-s7.iam.gserviceaccount.com'
 
       - name: Configurar Google Cloud CLI
         uses: google-github-actions/setup-gcloud@v2
