@@ -113,6 +113,7 @@ def run(argv=None):
                     project_id=known_args.project_id,
                     dataset_bronze=known_args.dataset_bronze,
                     dataset_silver=known_args.dataset_silver,
+                    
                     table_id=known_args.table_id,
                     location=known_args.location
                 )
