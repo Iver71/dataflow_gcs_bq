@@ -25,14 +25,17 @@ jobs:
       - name: Autenticación Segura en GCP (OIDC)
         uses: google-github-actions/auth@v2
         with:
-          project_id: 'omega-chimera-469104-s7' # Forzar ID de proyecto limpio aquí obligatoriamente          
-          workload_identity_provider: 'projects/43424099593/locations/global/workloadIdentityPools/github-pool-dataflow/providers/github-provider'
+          project_id: 'omega-chimera-469104-s7'
+          workload_identity_provider: 'projects/43424099593/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
           service_account: 'dataflow-gcs-bq@omega-chimera-469104-s7.iam.gserviceaccount.com'
+          # 👇 NUEVAS LÍNEAS OBLIGATORIAS: Resuelven el conflicto de getAccessToken con gcloud
+          create_credentials_file: true
+          export_environment_variables: true
 
       - name: Configurar Google Cloud CLI
         uses: google-github-actions/setup-gcloud@v2
         with:
-          project_id: 'omega-chimera-469104-s7' # Forzar ID aquí también para desinfectar gcloud
+          project_id: 'omega-chimera-469104-s7'
 
       - name: Autorizar Docker en Artifact Registry
         run: gcloud auth configure-docker us-east1-docker.pkg.dev --quiet
