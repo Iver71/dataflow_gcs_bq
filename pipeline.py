@@ -115,13 +115,16 @@ def run(argv=None):
             )
         )
 
-        # CORRECCIÓN AQUÍ: Orquestación nativa y limpia usando Side Inputs de Beam sin mapeos de panels inválidos
+        # CORRECCIÓN DEFINITIVA: Extraer la PCollection válida de control de BigQuery
+        bronze_signal = bronze_outputs.destination_load_job_ids_pc
+
+        # PASO 2: Orquestación controlada de la ejecución de capa Silver
         (
             p
             | "Create Trigger Signal" >> beam.Create([None])
             | "Wait for Bronze Load" >> beam.Map(
                 lambda x, signal: x, 
-                signal=beam.pvalue.AsSingleton(bronze_outputs)
+                signal=beam.pvalue.AsSingleton(bronze_signal)
             )
             | "Execute SQL Silver" >> beam.ParDo(
                 ExecuteSilverTransformFn(
@@ -137,3 +140,4 @@ def run(argv=None):
 if __name__ == "__main__":
     logging.getLogger().setLevel(logging.INFO)
     run()
+
