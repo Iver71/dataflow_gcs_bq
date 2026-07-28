@@ -115,17 +115,14 @@ def run(argv=None):
             )
         )
 
-        # CORRECCIÓN DEFINITIVA: Extraer la PCollection válida de control de BigQuery
-        bronze_signal = bronze_outputs.destination_load_job_ids_pairs
+        # CORRECCIÓN: Acceso correcto al atributo de trabajos de carga en Apache Beam 2.57.0
+        bronze_signal = bronze_outputs.destination_load_jobid_pairs
 
-        # PASO 2: Orquestación controlada de la ejecución de capa Silver
+        # PASO 2: Orquestación controlada utilizando beam.WaitOn (Práctica recomendada moderna)
         (
             p
             | "Create Trigger Signal" >> beam.Create([None])
-            | "Wait for Bronze Load" >> beam.Map(
-                lambda x, signal: x, 
-                signal=beam.pvalue.AsSingleton(bronze_signal)
-            )
+            | "Wait for Bronze Load" >> beam.WaitOn(bronze_signal)
             | "Execute SQL Silver" >> beam.ParDo(
                 ExecuteSilverTransformFn(
                     project_id=known_args.project_id,
@@ -140,4 +137,3 @@ def run(argv=None):
 if __name__ == "__main__":
     logging.getLogger().setLevel(logging.INFO)
     run()
-
