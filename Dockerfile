@@ -19,4 +19,4 @@ COPY metadata.json .
 ENV FLEX_TEMPLATE_PYTHON_MAIN_FILE="/template/pipeline.py"
 
 # 7. Punto de entrada obligatorio del SDK de Apache Beam para arrancar los workers de Dataflow
-ENTRYPOINT ["/opt/apache/beam/boot"]
+ENTRYPOINT ["/opt/google/dataflow/python_template_launcher"]
