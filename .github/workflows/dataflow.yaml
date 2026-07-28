@@ -26,8 +26,9 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           project_id: 'omega-chimera-469104-s7'
-          workload_identity_provider: 'projects/43424099593/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          workload_identity_provider: 'projects/43424099593/locations/global/workloadIdentityPools/github-pool-dataflow/providers/github-provider'
           service_account: 'dataflow-gcs-bq@omega-chimera-469104-s7.iam.gserviceaccount.com'
+
           # 👇 NUEVAS LÍNEAS OBLIGATORIAS: Resuelven el conflicto de getAccessToken con gcloud
           create_credentials_file: true
           export_environment_variables: true
