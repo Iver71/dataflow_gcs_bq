@@ -56,7 +56,7 @@ def run(argv=None):
         f'--project={known_args.project_id}',
         f'--region={known_args.location}',
         '--runner=DataflowRunner',
-        '--save_main_session=True' # <-- AGREGA ESTA LÍNEA AQUÍ
+        '--save_main_session' # <-- AGREGA ESTA LÍNEA AQUÍ
     ]
     pipeline_args.extend(runtime_args)
     pipeline_options = PipelineOptions(pipeline_args)
