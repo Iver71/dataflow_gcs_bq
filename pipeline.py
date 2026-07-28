@@ -108,7 +108,7 @@ def run(argv=None):
         )
 
         # CORRECCIÓN DE SEÑAL: Propiedad oficial expuesta por WriteToBigQueryResponse
-        bronze_signal = bronze_outputs.destination_load_jobid_pcollection
+        bronze_signal = bronze_outputs.destination_load_jobid_pairs
 
         # PASO 2: Orquestación controlada de la ejecución de capa Silver
         (
