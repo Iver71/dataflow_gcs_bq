@@ -48,27 +48,36 @@ def run(argv=None):
     parser.add_argument("--dataset_silver", default="olist_dataset_silver")
 
     known_args, pipeline_args = parser.parse_known_args(argv)
-    pipeline_options = PipelineOptions(pipeline_args)
-
-    # ----------------------------------------------------------------------
-    # NUEVO: Verificación y creación de Datasets antes de iniciar Beam
-    # ----------------------------------------------------------------------
-    bq_client = bigquery.Client(project=known_args.project_id)
-    datasets_to_check = [known_args.dataset_bronze, known_args.dataset_silver]
     
-    for dataset_name in datasets_to_check:
-        dataset_ref = bigquery.DatasetReference(known_args.project_id, dataset_name)
-        try:
-            bq_client.get_dataset(dataset_ref)
-            logging.info(f"El dataset {dataset_name} ya existe.")
-        except Exception:
-            logging.info(f"El dataset {dataset_name} no existe. Creándolo...")
-            nuevo_dataset = bigquery.Dataset(dataset_ref)
-            nuevo_dataset.location = known_args.location
-            bq_client.create_dataset(nuevo_dataset, exists_ok=True)
-            logging.info(f"Dataset {dataset_name} creado con éxito en {known_args.location}.")
+    # Configuramos las opciones de Beam con el proyecto y la región
+    pipeline_options = PipelineOptions(
+        pipeline_args,
+        project=known_args.project_id,
+        region=known_args.location
+    )
 
-    # Esquema Bronze
+    # ----------------------------------------------------------------------
+    # Verificación de Datasets para asegurar la existencia de las tablas
+    # ----------------------------------------------------------------------
+    try:
+        bq_client = bigquery.Client(project=known_args.project_id)
+        datasets_to_check = [known_args.dataset_bronze, known_args.dataset_silver]
+        
+        for dataset_name in datasets_to_check:
+            dataset_ref = bigquery.DatasetReference(known_args.project_id, dataset_name)
+            try:
+                bq_client.get_dataset(dataset_ref)
+                logging.info(f"El dataset {dataset_name} ya existe.")
+            except Exception:
+                logging.info(f"El dataset {dataset_name} no existe. Creándolo...")
+                nuevo_dataset = bigquery.Dataset(dataset_ref)
+                nuevo_dataset.location = known_args.location
+                bq_client.create_dataset(nuevo_dataset, exists_ok=True)
+                logging.info(f"Dataset {dataset_name} creado con éxito en {known_args.location}.")
+    except Exception as e:
+        logging.warning(f"Validación preliminar de datasets omitida: {e}")
+
+    # Esquema para la Capa Bronze
     esquema_bronze = {
         'fields': [
             {'name': 'review_id', 'type': 'STRING', 'mode': 'NULLABLE'},
@@ -82,7 +91,7 @@ def run(argv=None):
     }
 
     with beam.Pipeline(options=pipeline_options) as p:
-        # PASO 1: Ingesta desde GCS y Escritura Directa a Bronze
+        # PASO 1: Ingesta desde Cloud Storage y Escritura a Capa Bronze
         bronze_load = (
             p
             | "Read CSV from GCS" >> beam.io.ReadFromText(known_args.input_uri, skip_header_lines=1)
@@ -100,7 +109,7 @@ def run(argv=None):
             )
         )
 
-        # PASO 2: Orquestación y ejecución de la transformación hacia Silver
+        # PASO 2: Transformación SQL hacia Capa Silver
         (
             p
             | "Create Trigger Signal" >> beam.Create([None])
@@ -113,7 +122,6 @@ def run(argv=None):
                     project_id=known_args.project_id,
                     dataset_bronze=known_args.dataset_bronze,
                     dataset_silver=known_args.dataset_silver,
-                    
                     table_id=known_args.table_id,
                     location=known_args.location
                 )
