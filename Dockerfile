@@ -1,5 +1,5 @@
-# 1. Usamos la imagen base oficial requerida para Python 3.11 y Beam 2.60.0
-FROM apache/beam_python3.11_sdk:2.60.0
+# 👇 CORREGIDO: Usamos la imagen base oficial de Google Cloud para Flex Templates con Python 3.11
+FROM gcr.io/dataflow-templates-base/python311-template-launcher-base:latest
 
 # 2. Definimos el directorio de trabajo estándar para Flex Templates
 WORKDIR /template
@@ -15,8 +15,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY pipeline.py .
 COPY metadata.json .
 
-# 6. Definimos las variables de entorno para que el SDK de Beam localice el script principal
+# 6. Variables de entorno obligatorias para que Dataflow localice tu script principal
 ENV FLEX_TEMPLATE_PYTHON_MAIN_FILE="/template/pipeline.py"
 
-# 7. Punto de entrada obligatorio del SDK de Apache Beam para arrancar los workers de Dataflow
+# 7. Punto de entrada obligatorio para Dataflow Flex Templates (Ahora sí existirá)
 ENTRYPOINT ["/opt/google/dataflow/python_template_launcher"]
