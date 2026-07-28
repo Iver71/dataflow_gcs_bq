@@ -13,9 +13,11 @@ class ExecuteSilverTransformFn(beam.DoFn):
         self.location = location
 
     def setup(self):
+        from google.cloud import bigquery
         self.client = bigquery.Client(project=self.project_id)
 
     def process(self, element):
+        from google.cloud import bigquery
         table_ref_silver = f"`{self.project_id}.{self.dataset_silver}.{self.table_id}`"
         table_source_bronze = f"`{self.project_id}.{self.dataset_bronze}.{self.table_id}`"
         
@@ -54,6 +56,7 @@ def run(argv=None):
         f'--project={known_args.project_id}',
         f'--region={known_args.location}',
         '--runner=DataflowRunner'
+        '--save_main_session=True' # <-- AGREGA ESTA LÍNEA AQUÍ
     ]
     pipeline_args.extend(runtime_args)
     pipeline_options = PipelineOptions(pipeline_args)
