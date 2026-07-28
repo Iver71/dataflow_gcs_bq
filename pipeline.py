@@ -89,25 +89,27 @@ def run(argv=None):
     }
 
     with beam.Pipeline(options=pipeline_options) as p:
-        # PASO 1: Ingesta Directa Masiva desde GCS hacia BigQuery
+        # PASO 1 CORREGIDO: Lectura del archivo y mapeo plano a BigQuery
         bronze_outputs = (
             p
-            | "Trigger Load" >> beam.Create([known_args.input_uri])
+            | "Read CSV from GCS" >> beam.io.ReadFromText(known_args.input_uri, skip_header_lines=1)
+            # Convertimos cada línea del CSV en un JSON plano que coincide con tu esquema
+            | "Format to Dictionary" >> beam.Map(lambda line: dict(zip(
+                ['review_id', 'order_id', 'review_score', 'review_comment_title', 'review_comment_message', 'review_creation_date', 'review_answer_timestamp'],
+                [val.strip('"') for val in line.split(',')]
+              )))
             | "Write CSV Directly to Bronze" >> beam.io.WriteToBigQuery(
                 table=known_args.table_id,
                 dataset=known_args.dataset_bronze,
                 project=known_args.project_id,
                 schema=esquema_bq_nativo,
                 create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
-                write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE,
-                additional_bq_parameters={
-                    #'sourceFormat': 'CSV',
-                    'skipLeadingRows': 1
-                }
+                write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE
+                # ──► Ya no necesitas additional_bq_parameters porque los datos van limpios ◄──
             )
         )
 
-        # CORRECCIÓN DE SEÑAL: Propiedad oficial expuesta por WriteToBigQueryResponse
+        # Captura nativa de la señal del Job masivo usando la propiedad sugerida por la CLI
         bronze_signal = bronze_outputs.destination_load_jobid_pairs
 
         # PASO 2: Orquestación controlada de la ejecución de capa Silver
