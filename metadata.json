@@ -1,36 +1,43 @@
 {
-  "name": "Migracion GCS a BigQuery Silver",
-  "description": "Pipeline de Apache Beam para ingestar CSV en capas Bronze y procesar SQL Silver.",
+  "name": "Pipeline de Orquestación Reviews Bronze-Silver",
+  "description": "Carga archivos CSV hacia BigQuery Bronze y ejecuta transformaciones tipadas en la capa Silver.",
   "parameters": [
     {
       "name": "input_uri",
-      "label": "input_uri",
+      "label": "Ruta GCS del CSV de origen",
+      "helpText": "Ruta completa del dataset en Cloud Storage. Ejemplo: gs://mi-bucket/reviews.csv",
       "isOptional": true
     },
     {
       "name": "project_id",
-      "label": "project_id",
+      "label": "ID del Proyecto de GCP",
+      "helpText": "ID del proyecto donde se procesarán las bases de datos.",
       "isOptional": true
     },
     {
       "name": "location",
-      "label": "location",
+      "label": "Región de procesamiento",
+      "helpText": "Región de ejecución para Dataflow y BigQuery. Ejemplo: us-east1",
       "isOptional": true
     },
     {
       "name": "table_id",
-      "label": "table_id",
+      "label": "Identificador de la Tabla",
+      "helpText": "Nombre base de la tabla destino. Ejemplo: order_reviews",
       "isOptional": true
     },
     {
       "name": "dataset_bronze",
-      "label": "dataset_bronze",
+      "label": "Dataset de Capa Bronze",
+      "helpText": "Nombre del conjunto de datos crudos.",
       "isOptional": true
     },
     {
       "name": "dataset_silver",
-      "label": "dataset_silver",
+      "label": "Dataset de Capa Silver",
+      "helpText": "Nombre del conjunto de datos transformados.",
       "isOptional": true
     }
   ]
 }
+

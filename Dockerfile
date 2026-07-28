@@ -1,21 +1,21 @@
-# 1. Imagen base oficial de Google Cloud optimizada con Python 3.11
+# 1. Usar la imagen base oficial de Google Cloud para Flex Templates con Python 3.11
 FROM gcr.io/dataflow-templates-base/python311-template-launcher-base:latest
 
-# 2. Variables de entorno obligatorias para el launcher moderno de Dataflow (Usando MAIN_FILE)
-ENV FLEX_TEMPLATE_PYTHON_MAIN_FILE="/template/pipeline.py"
-ENV FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE="/template/requirements.txt"
+# 2. Definir el directorio de trabajo dentro del contenedor
+WORKDIR /dataflow/template
 
-# 3. ORDEN RECOMENDADO: Primero definimos y creamos la carpeta de trabajo interna
-WORKDIR /template
+# 3. Copiar los archivos de tu repositorio hacia el contenedor
+COPY pipeline.py /dataflow/template/pipeline.py
+COPY requirements.txt /dataflow/template/requirements.txt
 
-# 4. Copiamos TODO el contenido de tu GitHub dentro de la carpeta /template de forma masiva
-COPY . /template
+# 4. DEFINIR LAS VARIABLES DE ENTORNO OBLIGATORIAS
+# Esto le dice al launcher de Dataflow exactamente qué archivo ejecutar
+ENV FLEX_TEMPLATE_PYTHON_PY_FILE="/dataflow/template/pipeline.py"
+ENV FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE="/dataflow/template/requirements.txt"
 
-# 5. Actualizamos pip e instalamos las dependencias directo en el contenedor launcher
+# 5. Actualizar pip e instalar las dependencias necesarias
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r $FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE
+    && pip install --no-cache-dir -r /dataflow/template/requirements.txt
 
-# 6. Evita descargas redundantes de dependencias en la red interna de Dataflow
-ENV PIP_NO_DEPS=1
-
+# Nota: No se necesita definir un ENTRYPOINT, la imagen base se encarga de eso automáticamente
 

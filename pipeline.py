@@ -13,7 +13,6 @@ class ExecuteSilverTransformFn(beam.DoFn):
         self.table_id = table_id
         self.location = location
 
-    # Inicialización del cliente pesada aislada en el ciclo de vida del Worker
     def setup(self):
         self.client = bigquery.Client(project=self.project_id)
 
@@ -37,7 +36,7 @@ class ExecuteSilverTransformFn(beam.DoFn):
         
         logging.info("Iniciando transformación hacia la capa SILVER en BigQuery...")
         query_job = self.client.query(query_transformacion, location=self.location)
-        query_job.result()  # Bloquea y espera que termine el procesamiento SQL
+        query_job.result()  
         logging.info("Capa SILVER completada exitosamente desde Dataflow.")
         yield f"Proceso Silver Exitoso para {self.table_id}"
 
@@ -69,7 +68,6 @@ def run(argv=None):
         region=known_args.location
     )
 
-    # Inicialización controlada de Datasets e infraestructura previa en GCP
     try:
         bq_client = bigquery.Client(project=known_args.project_id)
         datasets_to_check = [known_args.dataset_bronze, known_args.dataset_silver]
@@ -88,7 +86,6 @@ def run(argv=None):
     except Exception as e:
         logging.warning(f"Validación preliminar de datasets omitida: {e}")
 
-    # Esquema tipado para la Capa Bronze masiva
     esquema_bronze = {
         'fields': [
             {'name': 'review_id', 'type': 'STRING', 'mode': 'NULLABLE'},
@@ -118,16 +115,13 @@ def run(argv=None):
             )
         )
 
-        # Extracción segura del token de control secuencial del Panel de Dataflow
-        bronze_completion_signal = bronze_outputs['child_panels']
-
-        # PASO 2: Orquestación controlada de la ejecución de capa Silver
+        # CORRECCIÓN AQUÍ: Orquestación nativa y limpia usando Side Inputs de Beam sin mapeos de panels inválidos
         (
             p
             | "Create Trigger Signal" >> beam.Create([None])
             | "Wait for Bronze Load" >> beam.Map(
                 lambda x, signal: x, 
-                signal=beam.pvalue.AsSingleton(bronze_completion_signal)
+                signal=beam.pvalue.AsSingleton(bronze_outputs)
             )
             | "Execute SQL Silver" >> beam.ParDo(
                 ExecuteSilverTransformFn(
