@@ -55,7 +55,7 @@ def run(argv=None):
     runtime_args = [
         f'--project={known_args.project_id}',
         f'--region={known_args.location}',
-        '--runner=DataflowRunner'
+        '--runner=DataflowRunner',
         '--save_main_session=True' # <-- AGREGA ESTA LÍNEA AQUÍ
     ]
     pipeline_args.extend(runtime_args)
