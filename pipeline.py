@@ -101,7 +101,7 @@ def run(argv=None):
                 create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
                 write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE,
                 additional_bq_parameters={
-                    'sourceFormat': 'CSV',
+                    #'sourceFormat': 'CSV',
                     'skipLeadingRows': 1
                 }
             )
