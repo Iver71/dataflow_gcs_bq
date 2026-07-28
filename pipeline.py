@@ -1,6 +1,5 @@
 import argparse
 import logging
-import csv
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
 from google.cloud import bigquery
@@ -40,17 +39,6 @@ class ExecuteSilverTransformFn(beam.DoFn):
         logging.info("Capa SILVER completada exitosamente desde Dataflow.")
         yield f"Proceso Silver Exitoso para {self.table_id}"
 
-def parse_safe_csv(line):
-    """Parsea el texto delimitado manejando comas internas de los textos"""
-    reader = csv.reader([line], delimiter=',', quotechar='"')
-    for row in reader:
-        if len(row) >= 7:
-            return dict(zip(
-                ['review_id', 'order_id', 'review_score', 'review_comment_title', 'review_comment_message', 'review_creation_date', 'review_answer_timestamp'],
-                [val.strip() for val in row[:7]]
-            ))
-    return None
-
 def run(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_uri", default="gs://tables_sample/olist_order_reviews_dataset.csv")
@@ -65,7 +53,8 @@ def run(argv=None):
     pipeline_options = PipelineOptions(
         pipeline_args,
         project=known_args.project_id,
-        region=known_args.location
+        region=known_args.location,
+        save_main_session=True 
     )
 
     try:
@@ -86,7 +75,8 @@ def run(argv=None):
     except Exception as e:
         logging.warning(f"Validación preliminar de datasets omitida: {e}")
 
-    esquema_bronze = {
+    # Estructura del esquema para la API de BigQuery
+    esquema_bq_nativo = {
         'fields': [
             {'name': 'review_id', 'type': 'STRING', 'mode': 'NULLABLE'},
             {'name': 'order_id', 'type': 'STRING', 'mode': 'NULLABLE'},
@@ -99,23 +89,24 @@ def run(argv=None):
     }
 
     with beam.Pipeline(options=pipeline_options) as p:
-        # PASO 1: Ingesta desde Cloud Storage y almacenamiento en capa Bronze
+        # PASO 1 ADAPTADO: Carga 100% Nativa sin procesar línea por línea en Python
+        # BigQuery lee directamente el CSV de GCS de forma masiva y altamente optimizada
         bronze_outputs = (
             p
-            | "Read CSV from GCS" >> beam.io.ReadFromText(known_args.input_uri, skip_header_lines=1)
-            | "Parse CSV Line" >> beam.Map(parse_safe_csv)
-            | "Filter Invalid Lines" >> beam.Filter(lambda x: x is not None)
-            | "Write to Bronze Table" >> beam.io.WriteToBigQuery(
+            | "Trigger Load" >> beam.Create([known_args.input_uri])
+            | "Write CSV Directly to Bronze" >> beam.io.WriteToBigQuery(
                 table=known_args.table_id,
                 dataset=known_args.dataset_bronze,
                 project=known_args.project_id,
-                schema=esquema_bronze,
+                schema=esquema_bq_nativo,
+                source_format='CSV',
+                skip_leading_rows=1,
                 create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
                 write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE
             )
         )
 
-        # CORRECCIÓN: Se cambió a 'destination_load_jobid_pairs' para evitar el AttributeError
+        # Control nativo del atributo de trabajos de carga en Apache Beam
         bronze_signal = bronze_outputs.destination_load_jobid_pairs
 
         # PASO 2: Orquestación controlada de la ejecución de capa Silver (Manteniendo AsSingleton)
