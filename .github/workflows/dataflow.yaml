@@ -53,3 +53,6 @@ jobs:
 
       - name: Construir Dataflow Flex Template                
         run: gcloud dataflow flex-template build "$TEMPLATE_GCS_PATH" --image-gcr-path="$IMAGE_URI" --sdk-language="PYTHON" --project="$PROJECT_ID" --metadata-file="metadata.json"  
+      #- name: Construir Dataflow Flex Template
+      #  run: gcloud dataflow flex-template build "$TEMPLATE_GCS_PATH" --image="$IMAGE_URI" --sdk-language="PYTHON" --project="$PROJECT_ID" --metadata-file="metadata.json"
+  
