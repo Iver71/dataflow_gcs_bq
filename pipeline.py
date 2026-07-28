@@ -50,12 +50,14 @@ def run(argv=None):
 
     known_args, pipeline_args = parser.parse_known_args(argv)
     
-    pipeline_options = PipelineOptions(
-        pipeline_args,
-        project=known_args.project_id,
-        region=known_args.location,
-        save_main_session=True 
-    )
+    # CORRECCIÓN: Inyección limpia de argumentos obligatorios para el Runner de Dataflow
+    runtime_args = [
+        f'--project={known_args.project_id}',
+        f'--region={known_args.location}',
+        '--runner=DataflowRunner'
+    ]
+    pipeline_args.extend(runtime_args)
+    pipeline_options = PipelineOptions(pipeline_args)
 
     try:
         bq_client = bigquery.Client(project=known_args.project_id)
@@ -75,7 +77,7 @@ def run(argv=None):
     except Exception as e:
         logging.warning(f"Validación preliminar de datasets omitida: {e}")
 
-    # Estructura del esquema para la API de BigQuery
+    # Estructura del esquema nativo para BigQuery
     esquema_bq_nativo = {
         'fields': [
             {'name': 'review_id', 'type': 'STRING', 'mode': 'NULLABLE'},
@@ -89,8 +91,7 @@ def run(argv=None):
     }
 
     with beam.Pipeline(options=pipeline_options) as p:
-        # PASO 1 ADAPTADO: Carga 100% Nativa sin procesar línea por línea en Python
-        # BigQuery lee directamente el CSV de GCS de forma masiva y altamente optimizada
+        # PASO 1 CORREGIDO: Mapeo de parámetros nativos dentro de additional_bq_parameters
         bronze_outputs = (
             p
             | "Trigger Load" >> beam.Create([known_args.input_uri])
@@ -99,17 +100,20 @@ def run(argv=None):
                 dataset=known_args.dataset_bronze,
                 project=known_args.project_id,
                 schema=esquema_bq_nativo,
-                source_format='CSV',
-                skip_leading_rows=1,
                 create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
-                write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE
+                write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE,
+                # CORRECCIÓN DE PARÁMETROS: Agrupados correctamente para la API de GCP
+                additional_bq_parameters={
+                    'sourceFormat': 'CSV',
+                    'skipLeadingRows': 1
+                }
             )
         )
 
-        # Control nativo del atributo de trabajos de carga en Apache Beam
-        bronze_signal = bronze_outputs.destination_load_jobid_pairs
+        # CORRECCIÓN DE SEÑAL: Extracción segura de la PCollection de control interno de BQ
+        bronze_signal = bronze_outputs['child_panels']
 
-        # PASO 2: Orquestación controlada de la ejecución de capa Silver (Manteniendo AsSingleton)
+        # PASO 2: Orquestación controlada de la ejecución de capa Silver
         (
             p
             | "Create Trigger Signal" >> beam.Create([None])
