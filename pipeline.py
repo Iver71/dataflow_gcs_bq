@@ -116,7 +116,7 @@ def run(argv=None):
         )
 
         # CORRECCIÓN DEFINITIVA: Extraer la PCollection válida de control de BigQuery
-        bronze_signal = bronze_outputs.destination_load_job_ids_pc
+        bronze_signal = bronze_outputs.destination_load_job_ids_pairs
 
         # PASO 2: Orquestación controlada de la ejecución de capa Silver
         (
