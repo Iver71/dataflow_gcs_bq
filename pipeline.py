@@ -50,7 +50,6 @@ def run(argv=None):
 
     known_args, pipeline_args = parser.parse_known_args(argv)
     
-    # CORRECCIÓN: Inyección limpia de argumentos obligatorios para el Runner de Dataflow
     runtime_args = [
         f'--project={known_args.project_id}',
         f'--region={known_args.location}',
@@ -77,7 +76,6 @@ def run(argv=None):
     except Exception as e:
         logging.warning(f"Validación preliminar de datasets omitida: {e}")
 
-    # Estructura del esquema nativo para BigQuery
     esquema_bq_nativo = {
         'fields': [
             {'name': 'review_id', 'type': 'STRING', 'mode': 'NULLABLE'},
@@ -91,7 +89,7 @@ def run(argv=None):
     }
 
     with beam.Pipeline(options=pipeline_options) as p:
-        # PASO 1 CORREGIDO: Mapeo de parámetros nativos dentro de additional_bq_parameters
+        # PASO 1: Ingesta Directa Masiva desde GCS hacia BigQuery
         bronze_outputs = (
             p
             | "Trigger Load" >> beam.Create([known_args.input_uri])
@@ -102,7 +100,6 @@ def run(argv=None):
                 schema=esquema_bq_nativo,
                 create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
                 write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE,
-                # CORRECCIÓN DE PARÁMETROS: Agrupados correctamente para la API de GCP
                 additional_bq_parameters={
                     'sourceFormat': 'CSV',
                     'skipLeadingRows': 1
@@ -110,8 +107,8 @@ def run(argv=None):
             )
         )
 
-        # CORRECCIÓN DE SEÑAL: Extracción segura de la PCollection de control interno de BQ
-        bronze_signal = bronze_outputs['child_panels']
+        # CORRECCIÓN DE SEÑAL: Propiedad oficial expuesta por WriteToBigQueryResponse
+        bronze_signal = bronze_outputs.destination_load_jobid_pcollection
 
         # PASO 2: Orquestación controlada de la ejecución de capa Silver
         (
