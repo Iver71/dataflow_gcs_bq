@@ -24,13 +24,14 @@ class ExecuteSilverTransformFn(beam.DoFn):
         query_transformacion = f"""
         CREATE OR REPLACE TABLE {table_ref_silver} AS
         SELECT
-            CAST(review_id AS STRING) AS review_id,
-            CAST(order_id AS STRING) AS order_id,
-            CAST(review_score AS INT64) AS review_score,
-            CAST(review_comment_title AS STRING) AS review_comment_title,
-            CAST(review_comment_message AS STRING) AS review_comment_message,
-            PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%S', review_creation_date) AS review_creation_date,
-            PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%S', review_answer_timestamp) AS review_answer_timestamp
+            SAFE_CAST(review_id AS STRING) AS review_id,
+            SAFE_CAST(order_id AS STRING) AS order_id,
+            SAFE_CAST(review_score AS INT64) AS review_score,
+            SAFE_CAST(review_comment_title AS STRING) AS review_comment_title,
+            SAFE_CAST(review_comment_message AS STRING) AS review_comment_message,
+            SAFE_CAST(review_creation_date AS TIMESTAMP) AS review_creation_date, -- <-- RECOMENDACIÓN EXTRA SEGURO
+            SAFE_CAST(review_answer_timestamp AS TIMESTAMP) AS review_answer_timestamp -- <-- RECOMENDACIÓN EXTRA SEGURO
+           
         FROM
             {table_source_bronze}
         """
