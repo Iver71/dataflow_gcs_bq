@@ -4,38 +4,32 @@
   "parameters": [
     {
       "name": "input_uri",
-      "label": "Ruta del archivo CSV en GCS",
-      "helpText": "gs://tu-bucket/archivo.csv",
+      "label": "input_uri",
       "isOptional": true
     },
     {
       "name": "project_id",
-      "label": "ID del Proyecto",
-      "helpText": "omega-chimera-469104-s7",
+      "label": "project_id",
       "isOptional": true
     },
     {
       "name": "location",
-      "label": "Region",
-      "helpText": "us-east1",
+      "label": "location",
       "isOptional": true
     },
     {
       "name": "table_id",
-      "label": "ID de la Tabla",
-      "helpText": "order_reviews",
+      "label": "table_id",
       "isOptional": true
     },
     {
       "name": "dataset_bronze",
-      "label": "Dataset Bronze",
-      "helpText": "olist_dataset_bronze",
+      "label": "dataset_bronze",
       "isOptional": true
     },
     {
       "name": "dataset_silver",
-      "label": "Dataset Silver",
-      "helpText": "olist_dataset_silver",
+      "label": "dataset_silver",
       "isOptional": true
     }
   ]
