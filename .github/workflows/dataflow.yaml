@@ -56,5 +56,5 @@ jobs:
           gcloud dataflow flex-template build $TEMPLATE_GCS_PATH \
             --image="$IMAGE_URI" \
             --sdk-language="PYTHON" \
-            --project="omega-chimera-469104-s7"
+            --project="omega-chimera-469104-s7"\
             --metadata-file="metadata.json"
