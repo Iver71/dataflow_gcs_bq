@@ -1,47 +1,41 @@
 {
-  "name": "Pipeline de Ingesta y Transformacion Bronze-Silver",
-  "description": "Pipeline que lee un CSV de reseñas desde GCS, lo escribe en la capa Bronze de BigQuery y ejecuta la transformación SQL hacia la capa Silver.",
+  "name": "Migracion GCS a BigQuery Silver",
+  "description": "Pipeline de Apache Beam para ingestar CSV en capas Bronze y procesar SQL Silver.",
   "parameters": [
     {
       "name": "input_uri",
-      "label": "Ruta del CSV en Cloud Storage",
-      "helpText": "Ubicación del archivo CSV de origen.",
-      "paramType": "TEXT",
+      "label": "Ruta del archivo CSV en GCS",
+      "helpText": "Ruta completa al archivo de origen (ej. gs://tu-bucket/olist_order_reviews_dataset.csv)",
       "isOptional": true
     },
     {
       "name": "project_id",
       "label": "ID del Proyecto de Google Cloud",
-      "helpText": "Proyecto donde se ejecutarán BigQuery y Dataflow.",
-      "paramType": "TEXT",
+      "helpText": "ID del proyecto en GCP (ej. omega-chimera-469104-s7)",
       "isOptional": true
     },
     {
       "name": "location",
-      "label": "Región/Ubicación de BigQuery",
-      "helpText": "Región geográfica para procesar los datos (ej: us-east1).",
-      "paramType": "TEXT",
+      "label": "Región de ejecución",
+      "helpText": "Ubicación geográfica para los recursos (ej. us-east1)",
       "isOptional": true
     },
     {
       "name": "table_id",
-      "label": "ID de la Tabla",
-      "helpText": "Nombre base de la tabla a procesar.",
-      "paramType": "TEXT",
+      "label": "ID de la Tabla BigQuery",
+      "helpText": "Nombre de la tabla destino (ej. order_reviews)",
       "isOptional": true
     },
     {
       "name": "dataset_bronze",
       "label": "Dataset de la Capa Bronze",
-      "helpText": "Nombre del conjunto de datos para la ingesta cruda.",
-      "paramType": "TEXT",
+      "helpText": "Nombre del dataset para la ingesta directa (ej. olist_dataset_bronze)",
       "isOptional": true
     },
     {
       "name": "dataset_silver",
       "label": "Dataset de la Capa Silver",
-      "helpText": "Nombre del conjunto de datos para la tabla transformada.",
-      "paramType": "TEXT",
+      "helpText": "Nombre del dataset para los datos transformados (ej. olist_dataset_silver)",
       "isOptional": true
     }
   ]

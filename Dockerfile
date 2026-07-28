@@ -1,22 +1,17 @@
-FROM gcr.io/dataflow-templates-base/python310-template-launcher-base:latest
+# 1. Usamos una versión base moderna con Python 3.11 para evitar advertencias de obsolescencia
+FROM gcr.io/dataflow-templates-base/python311-template-launcher-base:latest
 
-# 1. Rutas obligatorias para que Dataflow identifique los archivos
-ENV FLEX_TEMPLATE_PYTHON_PY_FILE="/template/pipeline.py"
+# 2. Definimos las rutas obligatorias para la Flex Template dentro del contenedor
 ENV FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE="/template/requirements.txt"
+ENV FLEX_TEMPLATE_PYTHON_MAIN_FILE="/template/pipeline.py"
 
-# 2. Configurar el directorio de trabajo y transferir el código
-WORKDIR /template
+# 3. Copiamos todos los archivos del repositorio al directorio de trabajo
 COPY . /template
+WORKDIR /template
 
-# 3. Actualizar herramientas básicas del sistema y de Python
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libffi-dev \
-    git \
-    && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir --upgrade pip
+# 4. Instalamos las dependencias en la imagen base (necesario para el paso de inicialización)
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r $FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE
 
-# 4. Instalar las dependencias controlando que no se rompa la imagen base
-RUN pip install --no-cache-dir -r $FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE
-
-# 5. Empaquetar dependencias para los Workers secundarios de GCP (Crucial)
-RUN pip download --no-cache-dir --dest /tmp/dataflow-requirements-cache -r $FLEX_TEMPLATE_PYTHON_REQUIREMENTS_FILE
+# 5. Le indicamos a Apache Beam que descargue las librerías en los Workers usando el Administrador de Paquetes de Dataflow
+ENV PIP_NO_DEPS=1

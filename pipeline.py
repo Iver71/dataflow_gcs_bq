@@ -1,5 +1,6 @@
 import argparse
 import logging
+import csv
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
 from google.cloud import bigquery
@@ -12,9 +13,11 @@ class ExecuteSilverTransformFn(beam.DoFn):
         self.table_id = table_id
         self.location = location
 
+    # Buenas prácticas Dataflow: Inicializar clientes pesados en el setup del Worker
+    def setup(self):
+        self.client = bigquery.Client(project=self.project_id)
+
     def process(self, element):
-        client = bigquery.Client(project=self.project_id)
-        
         table_ref_silver = f"`{self.project_id}.{self.dataset_silver}.{self.table_id}`"
         table_source_bronze = f"`{self.project_id}.{self.dataset_bronze}.{self.table_id}`"
         
@@ -33,10 +36,21 @@ class ExecuteSilverTransformFn(beam.DoFn):
         """
         
         logging.info("Iniciando transformación hacia la capa SILVER en BigQuery...")
-        query_job = client.query(query_transformacion, location=self.location)
-        query_job.result()  
+        query_job = self.client.query(query_transformacion, location=self.location)
+        query_job.result()  # Espera la ejecución de la consulta de BigQuery
         logging.info("Capa SILVER completada exitosamente desde Dataflow.")
         yield f"Proceso Silver Exitoso para {self.table_id}"
+
+def parse_safe_csv(line):
+    """Parsea líneas de CSV manejando correctamente comas internas dentro de textos"""
+    reader = csv.reader([line], delimiter=',', quotechar='"')
+    for row in reader:
+        if len(row) >= 7:
+            return dict(zip(
+                ['review_id', 'order_id', 'review_score', 'review_comment_title', 'review_comment_message', 'review_creation_date', 'review_answer_timestamp'],
+                [val.strip() for val in row[:7]]
+            ))
+    return None
 
 def run(argv=None):
     parser = argparse.ArgumentParser()
@@ -49,16 +63,13 @@ def run(argv=None):
 
     known_args, pipeline_args = parser.parse_known_args(argv)
     
-    # Configuramos las opciones de Beam con el proyecto y la región
     pipeline_options = PipelineOptions(
         pipeline_args,
         project=known_args.project_id,
         region=known_args.location
     )
 
-    # ----------------------------------------------------------------------
-    # Verificación de Datasets para asegurar la existencia de las tablas
-    # ----------------------------------------------------------------------
+    # Verificación e Inicialización Segura de Datasets en GCP
     try:
         bq_client = bigquery.Client(project=known_args.project_id)
         datasets_to_check = [known_args.dataset_bronze, known_args.dataset_silver]
@@ -77,7 +88,7 @@ def run(argv=None):
     except Exception as e:
         logging.warning(f"Validación preliminar de datasets omitida: {e}")
 
-    # Esquema para la Capa Bronze
+    # Esquema Estricto de BigQuery para la Capa Bronze
     esquema_bronze = {
         'fields': [
             {'name': 'review_id', 'type': 'STRING', 'mode': 'NULLABLE'},
@@ -91,14 +102,12 @@ def run(argv=None):
     }
 
     with beam.Pipeline(options=pipeline_options) as p:
-        # PASO 1: Ingesta desde Cloud Storage y Escritura a Capa Bronze
-        bronze_load = (
+        # PASO 1: Ingesta desde GCS y Escritura a Capa Bronze
+        bronze_outputs = (
             p
             | "Read CSV from GCS" >> beam.io.ReadFromText(known_args.input_uri, skip_header_lines=1)
-            | "Parse CSV Line" >> beam.Map(lambda line: dict(zip(
-                ['review_id', 'order_id', 'review_score', 'review_comment_title', 'review_comment_message', 'review_creation_date', 'review_answer_timestamp'],
-                [val.strip('"') for val in line.split(',')]
-              )))
+            | "Parse CSV Line" >> beam.Map(parse_safe_csv)
+            | "Filter Invalid Lines" >> beam.Filter(lambda x: x is not None)
             | "Write to Bronze Table" >> beam.io.WriteToBigQuery(
                 table=known_args.table_id,
                 dataset=known_args.dataset_bronze,
@@ -109,13 +118,17 @@ def run(argv=None):
             )
         )
 
-        # PASO 2: Transformación SQL hacia Capa Silver
+        # Extracción segura de la señal de finalización de la carga en BigQuery
+        # Se accede a la subcolección interna 'child_panels' generada por WriteToBigQuery
+        bronze_completion_signal = bronze_outputs['child_panels']
+
+        # PASO 2: Orquestación y Ejecución de Capa Silver (Espera que termine el paso 1)
         (
             p
             | "Create Trigger Signal" >> beam.Create([None])
             | "Wait for Bronze Load" >> beam.Map(
-                lambda x, onyx: x, 
-                onyx=beam.pvalue.AsSingleton(bronze_load.destination_load_jobid_pcollection)
+                lambda x, signal: x, 
+                signal=beam.pvalue.AsSingleton(bronze_completion_signal)
             )
             | "Execute SQL Silver" >> beam.ParDo(
                 ExecuteSilverTransformFn(

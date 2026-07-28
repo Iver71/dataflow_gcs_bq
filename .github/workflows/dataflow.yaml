@@ -37,7 +37,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: 'omega-chimera-469104-s7'
-          
+
       # 👇 Reemplaza el comando gcloud configure-docker tradicional por este paso nativo y seguro
       - name: Autorizar Docker en Artifact Registry
         uses: docker/login-action@v3
@@ -57,3 +57,4 @@ jobs:
             --image="$IMAGE_URI" \
             --sdk-language="PYTHON" \
             --project="omega-chimera-469104-s7"
+            --metadata-file="metadata.json"
