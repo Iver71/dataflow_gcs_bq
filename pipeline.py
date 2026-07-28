@@ -115,14 +115,17 @@ def run(argv=None):
             )
         )
 
-        # CORRECCIÓN: Acceso correcto al atributo de trabajos de carga en Apache Beam 2.57.0
+        # CORRECCIÓN: Se cambió a 'destination_load_jobid_pairs' para evitar el AttributeError
         bronze_signal = bronze_outputs.destination_load_jobid_pairs
 
-        # PASO 2: Orquestación controlada utilizando beam.WaitOn (Práctica recomendada moderna)
+        # PASO 2: Orquestación controlada de la ejecución de capa Silver (Manteniendo AsSingleton)
         (
             p
             | "Create Trigger Signal" >> beam.Create([None])
-            | "Wait for Bronze Load" >> beam.WaitOn(bronze_signal)
+            | "Wait for Bronze Load" >> beam.Map(
+                lambda x, signal: x, 
+                signal=beam.pvalue.AsSingleton(bronze_signal)
+            )
             | "Execute SQL Silver" >> beam.ParDo(
                 ExecuteSilverTransformFn(
                     project_id=known_args.project_id,
