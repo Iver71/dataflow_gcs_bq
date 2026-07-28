@@ -51,10 +51,5 @@ jobs:
           docker build -t $IMAGE_URI .
           docker push $IMAGE_URI
 
-      - name: Construir Dataflow Flex Template
-        run: |
-          gcloud dataflow flex-template build $TEMPLATE_GCS_PATH \
-            --image="$IMAGE_URI" \
-            --sdk-language="PYTHON" \
-            --project="omega-chimera-469104-s7" \
-            --metadata-file="metadata.json"
+      - name: Construir Dataflow Flex Template        
+        run: gcloud dataflow flex-template build "$TEMPLATE_GCS_PATH" --image="$IMAGE_URI" --sdk-language="PYTHON" --project="$PROJECT_ID" --metadata-file="metadata.json"

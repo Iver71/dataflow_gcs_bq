@@ -5,37 +5,37 @@
     {
       "name": "input_uri",
       "label": "Ruta del archivo CSV en GCS",
-      "helpText": "Ruta completa al archivo de origen (ej. gs://tu-bucket/olist_order_reviews_dataset.csv)",
+      "helpText": "gs://tu-bucket/archivo.csv",
       "isOptional": true
     },
     {
       "name": "project_id",
-      "label": "ID del Proyecto de Google Cloud",
-      "helpText": "ID del proyecto en GCP (ej. omega-chimera-469104-s7)",
+      "label": "ID del Proyecto",
+      "helpText": "omega-chimera-469104-s7",
       "isOptional": true
     },
     {
       "name": "location",
-      "label": "Región de ejecución",
-      "helpText": "Ubicación geográfica para los recursos (ej. us-east1)",
+      "label": "Region",
+      "helpText": "us-east1",
       "isOptional": true
     },
     {
       "name": "table_id",
-      "label": "ID de la Tabla BigQuery",
-      "helpText": "Nombre de la tabla destino (ej. order_reviews)",
+      "label": "ID de la Tabla",
+      "helpText": "order_reviews",
       "isOptional": true
     },
     {
       "name": "dataset_bronze",
-      "label": "Dataset de la Capa Bronze",
-      "helpText": "Nombre del dataset para la ingesta directa (ej. olist_dataset_bronze)",
+      "label": "Dataset Bronze",
+      "helpText": "olist_dataset_bronze",
       "isOptional": true
     },
     {
       "name": "dataset_silver",
-      "label": "Dataset de la Capa Silver",
-      "helpText": "Nombre del dataset para los datos transformados (ej. olist_dataset_silver)",
+      "label": "Dataset Silver",
+      "helpText": "olist_dataset_silver",
       "isOptional": true
     }
   ]
